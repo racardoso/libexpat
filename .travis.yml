@@ -10,7 +10,18 @@ addons:
       - docbook2x
 
 install:
-  - wget -O xmlts.zip https://www.w3.org/XML/Test/xmlts20080827.zip
+  - |
+    (
+        cd CACHE || exit 1
+        if ! sha256sum -c <(echo '4e5bc821d521d68b0666f5cc7825cc6a61010d114086e963a21db7897b369d43  xmlts.zip') ; then
+            rm -f xmlts.zip
+            wget -O xmlts.zip https://www.w3.org/XML/Test/xmlts20080827.zip
+        fi
+    )
+
+cache:
+  directories:
+  - CACHE
 
 script:
   - cd expat
@@ -22,7 +33,7 @@ script:
             lib-coverage \
             ; do
         git clean -X -d -f
-        cp -v ../xmlts.zip tests/xmlts.zip
+        cp -v ../CACHE/xmlts.zip tests/xmlts.zip
         ./buildconf.sh
         CFLAGS='-g -pipe' ./qa.sh ${mode} || ret=1
     done
