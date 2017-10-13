@@ -1617,11 +1617,13 @@ XML_Parse(XML_Parser parser, const char *s, int len, int isFinal)
     nLeftOver = s + len - end;
     if (nLeftOver) {
       if (buffer == NULL || nLeftOver > bufferLim - buffer) {
-        /* FIXME avoid integer overflow */
-        char *temp;
-        temp = (buffer == NULL
-                ? (char *)MALLOC(len * 2)
-                : (char *)REALLOC(buffer, len * 2));
+        /* avoid _signed_ integer overflow */
+        char *temp = NULL;
+        const int bytesToAllocate = (int)((unsigned)len * 2U);
+        if (bytesToAllocate > 0) {
+          temp = (buffer == NULL
+                ? (char *)MALLOC(bytesToAllocate)
+                : (char *)REALLOC(buffer, bytesToAllocate));}
         if (temp == NULL) {
           errorCode = XML_ERROR_NO_MEMORY;
           eventPtr = eventEndPtr = NULL;
@@ -1629,7 +1631,7 @@ XML_Parse(XML_Parser parser, const char *s, int len, int isFinal)
           return XML_STATUS_ERROR;
         }
         buffer = temp;
-        bufferLim = buffer + len * 2;
+        bufferLim = buffer + bytesToAllocate;
       }
       memcpy(buffer, end, nLeftOver);
     }
@@ -3692,6 +3694,14 @@ entityValueInitProcessor(XML_Parser parser,
     else if (tok == XML_TOK_BOM && next == end && !ps_finalBuffer) {
       *nextPtr = next;
       return XML_ERROR_NONE;
+    }
+    /* If we get this token, we have the start of what might be a
+       normal tag, but not a declaration (i.e. it doesn't begin with
+       "<!").  In a DTD context, that isn't legal.
+    */
+    else if (tok == XML_TOK_INSTANCE_START) {
+      *nextPtr = next;
+      return XML_ERROR_SYNTAX;
     }
     start = next;
     eventPtr = start;
